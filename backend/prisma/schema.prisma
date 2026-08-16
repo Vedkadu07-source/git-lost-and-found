@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Entity
+model User {
+  id          String     @id @default(uuid())
+  email       String     @unique // Must match *@git-india.edu.in
+  name        String
+  avatarUrl   String?
+  role        Role       @default(USER)
+  isRevoked   Boolean    @default(false) // Admin kill-switch
+  items       Item[]     @relation("ReportedItems")
+  auditLogs   AuditLog[] @relation("AdminActions")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+// Item Entity
+model Item {
+  id          String     @id @default(uuid())
+  type        ItemType   // LOST or FOUND
+  title       String
+  description String
+  category    String     // e.g., Electronics, Documents, Keys
+  status      ItemStatus @default(ACTIVE)
+  
+  // Storage & Location
+  imageUrl    String?    // Required for FOUND, optional for LOST
+  imageId     String?    // Required for cloud deletion API
+  latitude    Float?     // Leaflet.js Y coordinate
+  longitude   Float?     // Leaflet.js X coordinate
+
+  // Relations
+  reporterId  String
+  reporter    User       @relation("ReportedItems", fields: [reporterId], references: [id])
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+// Audit Log Entity (Admin Command Center)
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String   // e.g., "PURGE_ITEM", "REVOKE_USER"
+  details     String   // JSON stringified metadata about the action
+  
+  adminId     String
+  admin       User     @relation("AdminActions", fields: [adminId], references: [id])
+  
+  createdAt   DateTime @default(now())
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ItemType {
+  LOST
+  FOUND
+}
+
+enum ItemStatus {
+  ACTIVE
+  CLAIMED
+  PURGED
+}

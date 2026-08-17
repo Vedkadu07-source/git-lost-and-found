@@ -10,26 +10,31 @@ export const ReportLost: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     // 1. Trigger the loading toast before the API call starts
     const loadingToast = toast.loading("Reporting lost item...");
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    // (If you have any formData.append lines, they go here)
+    
+    // 2. THIS IS THE FIX: Attach the image state to the payload!
+    if (image) {
+      formData.append("image", image);
+    }
 
     try {
+      // 3. Send the request to your backend
       await API.post("/items/lost", formData);
       
-      // 2. Dismiss the loading spinner and show the success toast
+      // 4. Handle success
       toast.dismiss(loadingToast);
       toast.success("Lost item reported successfully!");
       navigate("/");
       
     } catch (error) {
-      console.error(error);
+      console.error("Lost Item Error:", error);
       
-      // 3. Dismiss the loading spinner and show the error toast
+      // 5. Handle error
       toast.dismiss(loadingToast);
       toast.error("Failed to report lost item. Please try again.");
       
@@ -37,7 +42,6 @@ export const ReportLost: React.FC = () => {
       setLoading(false);
     }
   };
-
     
   return (
     <div className="max-w-2xl mx-auto p-6 my-8 bg-white rounded-xl shadow-sm border border-slate-200">

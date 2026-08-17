@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import API from "../services/api";
 import { useAuthStore } from "../store/authStore";
-import { Trash2, Shield, AlertTriangle } from "lucide-react";
+import { Trash2, Shield } from "lucide-react";
 
 export const AdminDashboard: React.FC = () => {
   const { user } = useAuthStore();

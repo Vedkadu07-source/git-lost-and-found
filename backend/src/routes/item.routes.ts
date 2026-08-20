@@ -12,7 +12,8 @@ router.get("/", getActiveItems);
 router.post("/found", authenticateToken, uploadImage.single("image"), reportFoundItem);
 router.post("/lost", authenticateToken, uploadImage.single("image"), reportLostItem);
 
-export default router;
 // Admin-Only Routes
 router.get("/admin/all", authenticateToken, requireAdmin, getAllItemsAdmin);
 router.delete("/:id", authenticateToken, requireAdmin, deleteItem);
+
+export default router;

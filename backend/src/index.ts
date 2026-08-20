@@ -10,7 +10,9 @@ import itemRoutes from "./routes/item.routes.js";
 dotenv.config();
 
 const app = express();
-// --- 10/10 SECURITY CONFIGURATION ---
+const PORT = process.env.PORT || 5000;
+
+// --- SECURITY CONFIGURATION ---
 
 // 1. Trust the proxy (Required if you deploy to Render, Railway, or Vercel)
 app.set("trust proxy", 1);
@@ -37,18 +39,10 @@ const apiLimiter = rateLimit({
 // Apply the rate limiter strictly to all /api routes
 app.use("/api", apiLimiter);
 
-// ------------------------------------
-const PORT = process.env.PORT || 5000;
-
-// Security Middlewares
-app.use(helmet());
-app.use(
-  cors({
-    origin: ["http://localhost:5173"],
-    credentials: true,
-  })
-);
+// 5. Body Parser
 app.use(express.json());
+
+// ------------------------------------
 
 // 1. Root Endpoint
 app.get("/", (_req, res) => {
@@ -66,16 +60,14 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-// 3. Authentication Routes
+// 3. Application Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/items", itemRoutes);
+
+// 4. Start Server (single call)
 app.listen(PORT, () => {
   console.log(`🚀 GIT Lost & Found API running on http://localhost:${PORT}`);
-
 });
-// Start background automation
+
+// 5. Start background automation
 startCronJobs();
-
-app.listen(PORT, () => {
-  console.log(`🚀 GIT Lost & Found API running on http://localhost:${PORT}`);
-});

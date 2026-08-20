@@ -55,7 +55,7 @@ export const reportFoundItem = async (req: AuthenticatedRequest, res: Response):
 
     // 3. Send email alerts silently in the background
     uniqueEmails.forEach((email: any) => {
-       if (email) sendMatchAlert(String(email), title, category);
+      if (email) sendMatchAlert(String(email), title, category);
     });
     // ---------------------------------------
 
@@ -109,7 +109,7 @@ export const reportLostItem = async (req: AuthenticatedRequest, res: Response): 
 export const getActiveItems = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { search, type, page = "1", limit = "9" } = req.query;
-    
+
     // Calculate how many items to skip based on the current page
     const pageNum = parseInt(String(page), 10);
     const limitNum = parseInt(String(limit), 10);
@@ -138,7 +138,7 @@ export const getActiveItems = async (req: AuthenticatedRequest, res: Response): 
       take: limitNum,
       include: {
         reporter: {
-          select: { name: true, avatarUrl: true }, 
+          select: { name: true, avatarUrl: true },
         },
       },
     });
@@ -176,25 +176,23 @@ export const getAllItemsAdmin = async (_req: AuthenticatedRequest, res: Response
 // 5. Admin: Permanently Delete an Item
 export const deleteItem = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    
-    // Find the item to get its Cloudinary Image ID
-    const item = await prisma.item.findUnique({ where: { id } });
-    if (!item) {
-      res.status(404).json({ error: "Item not found." });
-      return;
-    }
+    const id = req.params.id as string;
+
+    // Delete the record and get it back in one shot
+    const item = await prisma.item.delete({ where: { id } });
 
     // Erase the photo from the cloud
     if (item.imageId) {
       await cloudinary.uploader.destroy(item.imageId);
     }
 
-    // Erase the record from the database
-    await prisma.item.delete({ where: { id } });
-    
     res.status(200).json({ message: "Item permanently deleted." });
-  } catch (error) {
+  } catch (error: any) {
+    // Prisma throws P2025 when the record doesn't exist
+    if (error?.code === "P2025") {
+      res.status(404).json({ error: "Item not found." });
+      return;
+    }
     console.error("Admin Delete Error:", error);
     res.status(500).json({ error: "Failed to delete item." });
   }

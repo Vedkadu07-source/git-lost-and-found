@@ -40,8 +40,8 @@ export const startCronJobs = () => {
       });
 
       console.log(`🗑️ Successfully purged ${deleted.count} expired items from the system.`);
-    } catch (error) {
-      console.error("❌ Nightly cron job failed:", error);
+    } catch (error: any) {
+      console.error("❌ Nightly cron job failed:", error.message || "Unknown error");
     }
   });
 };

@@ -3,11 +3,18 @@ import { prisma } from "../config/db.js";
 import { uploadToCloudinary, cloudinary } from "../middlewares/upload.middleware.js";
 import { AuthenticatedRequest } from "../middlewares/auth.middleware.js";
 import { sendMatchAlert } from "../utils/email.service.js";
+import { foundItemSchema, lostItemSchema, publicQuerySchema, idParamSchema } from "../validation/schemas.js";
+import { validateImageMagicBytes } from "../validation/file.validation.js";
 
 // 1. Report a Found Item (Requires Image & Location)
 export const reportFoundItem = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { title, description, category, latitude, longitude } = req.body;
+    const validated = foundItemSchema.safeParse(req.body);
+    if (!validated.success) {
+      res.status(400).json({ error: "Validation failed", details: validated.error.format() });
+      return;
+    }
+    const { title, description, category, latitude, longitude } = validated.data;
     const userId = req.user?.id;
 
     if (!userId) {
@@ -20,6 +27,14 @@ export const reportFoundItem = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
+    // --- FILE SECURITY VALIDATION ---
+    // Reject invalid/corrupted files based on actual magic bytes
+    const detectedMime = validateImageMagicBytes(req.file.buffer);
+    if (!detectedMime) {
+      res.status(400).json({ error: "Invalid image file" });
+      return;
+    }
+
     // Stream image buffer to Cloudinary
     const cloudResponse = await uploadToCloudinary(req.file.buffer);
 
@@ -29,8 +44,8 @@ export const reportFoundItem = async (req: AuthenticatedRequest, res: Response):
         title,
         description,
         category,
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
+        latitude,
+        longitude,
         imageUrl: cloudResponse.secure_url,
         imageId: cloudResponse.public_id,
         reporterId: userId,
@@ -60,8 +75,8 @@ export const reportFoundItem = async (req: AuthenticatedRequest, res: Response):
     // ---------------------------------------
 
     res.status(201).json({ message: "Found item reported successfully", item });
-  } catch (error) {
-    console.error("Found Item Error:", error);
+  } catch (error: any) {
+    console.error("Found Item Error:", error.message || "Unknown error");
     res.status(500).json({ error: "Failed to report found item." });
   }
 };
@@ -69,7 +84,12 @@ export const reportFoundItem = async (req: AuthenticatedRequest, res: Response):
 // 2. Report a Lost Item (Image is Optional)
 export const reportLostItem = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { title, description, category } = req.body;
+    const validated = lostItemSchema.safeParse(req.body);
+    if (!validated.success) {
+      res.status(400).json({ error: "Validation failed", details: validated.error.format() });
+      return;
+    }
+    const { title, description, category } = validated.data;
     const userId = req.user?.id;
 
     if (!userId) {
@@ -81,6 +101,13 @@ export const reportLostItem = async (req: AuthenticatedRequest, res: Response): 
     let imageId = null;
 
     if (req.file) {
+      // --- FILE SECURITY VALIDATION ---
+      const detectedMime = validateImageMagicBytes(req.file.buffer);
+      if (!detectedMime) {
+        res.status(400).json({ error: "Invalid image file" });
+        return;
+      }
+
       const cloudResponse = await uploadToCloudinary(req.file.buffer);
       imageUrl = cloudResponse.secure_url;
       imageId = cloudResponse.public_id;
@@ -99,8 +126,8 @@ export const reportLostItem = async (req: AuthenticatedRequest, res: Response): 
     });
 
     res.status(201).json({ message: "Lost item reported successfully", item });
-  } catch (error) {
-    console.error("Lost Item Error:", error);
+  } catch (error: any) {
+    console.error("Lost Item Error:", error.message || "Unknown error");
     res.status(500).json({ error: "Failed to report lost item." });
   }
 };
@@ -108,12 +135,15 @@ export const reportLostItem = async (req: AuthenticatedRequest, res: Response): 
 // 3. Fetch All Active Items (With Search, Filter, & Pagination)
 export const getActiveItems = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { search, type, page = "1", limit = "9" } = req.query;
+    const validated = publicQuerySchema.safeParse(req.query);
+    if (!validated.success) {
+      res.status(400).json({ error: "Validation failed", details: validated.error.format() });
+      return;
+    }
+    const { search, type, page, limit } = validated.data;
 
     // Calculate how many items to skip based on the current page
-    const pageNum = parseInt(String(page), 10);
-    const limitNum = parseInt(String(limit), 10);
-    const skip = (pageNum - 1) * limitNum;
+    const skip = (page - 1) * limit;
 
     // Base query: Only show active items
     const whereClause: any = { status: "ACTIVE" };
@@ -135,7 +165,7 @@ export const getActiveItems = async (req: AuthenticatedRequest, res: Response): 
       where: whereClause,
       orderBy: { createdAt: "desc" },
       skip: skip,
-      take: limitNum,
+      take: limit,
       include: {
         reporter: {
           select: { name: true, avatarUrl: true },
@@ -149,8 +179,8 @@ export const getActiveItems = async (req: AuthenticatedRequest, res: Response): 
 
     // Return the items array alongside the hasMore boolean
     res.status(200).json({ items, hasMore });
-  } catch (error) {
-    console.error("Fetch Items Error:", error);
+  } catch (error: any) {
+    console.error("Fetch Items Error:", error.message || "Unknown error");
     res.status(500).json({ error: "Failed to fetch items." });
   }
 };
@@ -167,8 +197,8 @@ export const getAllItemsAdmin = async (_req: AuthenticatedRequest, res: Response
       },
     });
     res.status(200).json(items);
-  } catch (error) {
-    console.error("Admin Fetch Error:", error);
+  } catch (error: any) {
+    console.error("Admin Fetch Error:", error.message || "Unknown error");
     res.status(500).json({ error: "Failed to fetch admin data." });
   }
 };
@@ -176,24 +206,55 @@ export const getAllItemsAdmin = async (_req: AuthenticatedRequest, res: Response
 // 5. Admin: Permanently Delete an Item
 export const deleteItem = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const id = req.params.id as string;
+    const validated = idParamSchema.safeParse(req.params);
+    if (!validated.success) {
+      res.status(400).json({ error: "Validation failed", details: validated.error.format() });
+      return;
+    }
+    const { id } = validated.data;
+    const adminId = req.user?.id;
 
-    // Delete the record and get it back in one shot
-    const item = await prisma.item.delete({ where: { id } });
+    if (!adminId) {
+      res.status(401).json({ error: "Unauthorized access." });
+      return;
+    }
 
-    // Erase the photo from the cloud
+    // Retrieve target item to verify it exists and gather metadata for auditing
+    const item = await prisma.item.findUnique({ where: { id } });
+    if (!item) {
+      res.status(404).json({ error: "Item not found." });
+      return;
+    }
+
+    // Execute atomic deletion and audit logging in a single database transaction
+    await prisma.$transaction([
+      prisma.item.delete({ where: { id } }),
+      prisma.auditLog.create({
+        data: {
+          action: "DELETE_ITEM",
+          adminId: adminId,
+          details: JSON.stringify({
+            itemId: item.id,
+            type: item.type,
+            category: item.category
+          })
+        }
+      })
+    ]);
+
+    // External Side-Effect: Erase the photo from the cloud AFTER successful DB transaction
     if (item.imageId) {
-      await cloudinary.uploader.destroy(item.imageId);
+      try {
+        await cloudinary.uploader.destroy(item.imageId);
+      } catch (cloudErr: any) {
+        console.error(`Cloudinary deletion failed for imageId ${item.imageId}:`, cloudErr.message || "Unknown error");
+        // Do not fail the response here; the database transaction is fully committed.
+      }
     }
 
     res.status(200).json({ message: "Item permanently deleted." });
   } catch (error: any) {
-    // Prisma throws P2025 when the record doesn't exist
-    if (error?.code === "P2025") {
-      res.status(404).json({ error: "Item not found." });
-      return;
-    }
-    console.error("Admin Delete Error:", error);
+    console.error("Admin Delete Error:", error.message || "Unknown error");
     res.status(500).json({ error: "Failed to delete item." });
   }
 };

@@ -5,6 +5,7 @@ import { ReportLost } from "./pages/ReportLost";
 import { Login } from "./pages/Login";
 import { Home } from "./pages/Home";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Toaster } from "react-hot-toast";
 // The Home Page Feed (We will build the actual feed component next)
 
@@ -20,10 +21,10 @@ export default function App() {
           <Routes>
             {/* These now point to your REAL components! */}
             <Route path="/" element={<Home />} />
-            <Route path="/report-lost" element={<ReportLost />} />
-            <Route path="/report-found" element={<ReportFound />} />
+            <Route path="/report-lost" element={<ProtectedRoute><ReportLost /></ProtectedRoute>} />
+            <Route path="/report-found" element={<ProtectedRoute><ReportFound /></ProtectedRoute>} />
             <Route path="/login" element={<Login />} />
-            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminDashboard /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>

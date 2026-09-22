@@ -26,8 +26,12 @@ export const Login: React.FC = () => {
       // Save user and token to Zustand global state & LocalStorage
       setAuth(res.data.user, res.data.token);
       
-      // Redirect to home page
-      navigate("/");
+      // Redirect based on role
+      if (res.data.user.role === "ADMIN") {
+        navigate("/admin");
+      } else {
+        navigate("/");
+      }
     } catch (err: any) {
       console.error("Login Error:", err);
       setError(

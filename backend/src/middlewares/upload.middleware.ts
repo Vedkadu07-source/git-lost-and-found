@@ -1,18 +1,12 @@
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
-import dotenv from "dotenv";
+import { env } from "../config/env.js";
 
-dotenv.config();
-console.log("--- CLOUDINARY DEBUG ---");
-console.log("Cloud Name:", process.env.CLOUDINARY_CLOUD_NAME);
-console.log("API Key:", process.env.CLOUDINARY_API_KEY);
-console.log("Secret Exists?", !!process.env.CLOUDINARY_API_SECRET);
-console.log("------------------------");
 // 1. Authenticate with Cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: env.CLOUDINARY_CLOUD_NAME,
+  api_key: env.CLOUDINARY_API_KEY,
+  api_secret: env.CLOUDINARY_API_SECRET,
 });
 
 // 2. Configure Multer to store files temporarily in RAM (Memory Storage)

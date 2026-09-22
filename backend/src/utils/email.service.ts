@@ -1,16 +1,46 @@
-import { Resend } from "resend";
+import { google } from "googleapis";
 import { env } from "../config/env.js";
 
-const resend = new Resend(env.RESEND_API_KEY);
+// Configure OAuth2 client for Gmail API
+const oauth2Client = new google.auth.OAuth2(
+  env.GMAIL_CLIENT_ID,
+  env.GMAIL_CLIENT_SECRET
+);
+
+oauth2Client.setCredentials({
+  refresh_token: env.GMAIL_REFRESH_TOKEN,
+});
+
+const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+
+/**
+ * Build an RFC 2822 compliant MIME message and encode it as base64url
+ * for the Gmail API `raw` field.
+ */
+function buildRawEmail(from: string, to: string, subject: string, html: string): string {
+  const messageParts = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/html; charset="UTF-8"',
+    "",
+    html,
+  ];
+  const message = messageParts.join("\r\n");
+  // base64url encode: standard base64 with + → -, / → _, no padding
+  return Buffer.from(message)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
 
 // The function that formats and sends the alert
 export const sendMatchAlert = async (toEmail: string, foundItemTitle: string, category: string) => {
   try {
-    const { data, error } = await resend.emails.send({
-      from: "GIT Lost & Found <onboarding@resend.dev>",
-      to: toEmail,
-      subject: "🔍 Possible Match for Your Lost Item!",
-      html: `
+    const subject = "🔍 Possible Match for Your Lost Item!";
+    const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">
         <div style="background-color: #059669; padding: 20px; text-align: center;">
           <h2 style="color: white; margin: 0;">Good News!</h2>
@@ -34,16 +64,18 @@ export const sendMatchAlert = async (toEmail: string, foundItemTitle: string, ca
           This is an automated message from the GIT Lost & Found network.
         </div>
       </div>
-    `,
+    `;
+
+    const from = `"GIT Lost & Found" <${env.GMAIL_SENDER_EMAIL}>`;
+    const raw = buildRawEmail(from, toEmail, subject, html);
+
+    await gmail.users.messages.send({
+      userId: "me",
+      requestBody: { raw },
     });
 
-    if (error) {
-      console.error("❌ Email sending failed via Resend API:", error.message);
-      return;
-    }
-
-    console.log(`✅ Automated match alert sent to ${toEmail} (ID: ${data?.id})`);
+    console.log(`✅ Automated match alert sent to ${toEmail}`);
   } catch (err: any) {
-    console.error("❌ Email sending failed unexpectedly:", err.message || "Unknown error");
+    console.error("❌ Email sending failed:", err.message || "Unknown error");
   }
 };

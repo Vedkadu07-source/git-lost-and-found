@@ -12,6 +12,9 @@ export const Login: React.FC = () => {
 
   // If user is already logged in, redirect them away from the login page
   if (user) {
+    if (user.role === "ADMIN") {
+      return <Navigate to="/admin" replace />;
+    }
     return <Navigate to="/" replace />;
   }
 

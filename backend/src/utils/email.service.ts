@@ -39,7 +39,7 @@ function buildRawEmail(from: string, to: string, subject: string, html: string):
 // The function that formats and sends the alert
 export const sendMatchAlert = async (toEmail: string, foundItemTitle: string, category: string) => {
   try {
-    const subject = "🔍 Possible Match for Your Lost Item!";
+    const subject = "Possible Match for Your Lost Item!";
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">
         <div style="background-color: #059669; padding: 20px; text-align: center;">

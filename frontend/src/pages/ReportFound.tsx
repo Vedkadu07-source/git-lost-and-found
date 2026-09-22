@@ -1,8 +1,23 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import API from "../services/api";
 import toast from "react-hot-toast";
+
+// Fix Leaflet default marker icon for Vite production builds
+const defaultIcon = new L.Icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
 
 // Gharda Institute of Technology Approximate Coordinates
 const GIT_CENTER: [number, number] = [17.650280, 73.464170 ];
@@ -14,7 +29,7 @@ const LocationPicker = ({ position, setPosition }: { position: any; setPosition:
       setPosition([e.latlng.lat, e.latlng.lng]);
     },
   });
-  return position ? <Marker position={position} /> : null;
+  return position ? <Marker position={position} icon={defaultIcon} /> : null;
 };
 
 export const ReportFound: React.FC = () => {
@@ -95,7 +110,7 @@ export const ReportFound: React.FC = () => {
             <label className="block text-sm font-medium text-slate-700">Pinpoint Location Found (Required)</label>
             <p className="text-xs text-slate-500 mb-2">Click on the map to drop a pin.</p>
             <div className="h-[350px] w-full rounded-lg overflow-hidden border border-slate-300">
-              <MapContainer center={GIT_CENTER} zoom={19} scrollWheelZoom={true} style={{ height: "100%", width: "100%" }}>
+              <MapContainer center={GIT_CENTER} zoom={18} scrollWheelZoom={true} style={{ height: "100%", width: "100%" }}>
               <TileLayer 
                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" 
                attribution="&copy; Esri"

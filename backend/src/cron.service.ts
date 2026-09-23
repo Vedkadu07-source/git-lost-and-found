@@ -11,9 +11,10 @@ export const startCronJobs = () => {
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
     try {
-      // 1. Find all expired items
+      // 1. Find all expired ACTIVE items
       const expiredItems = await prisma.item.findMany({
         where: {
+          status: "ACTIVE",
           createdAt: {
             lt: ninetyDaysAgo,
           },
@@ -25,21 +26,34 @@ export const startCronJobs = () => {
         return;
       }
 
-      // 2. Delete images from Cloudinary storage
+      const itemsToDelete: string[] = [];
+
+      // 2. Process Cloudinary deletions per item
       for (const item of expiredItems) {
-        if (item.imageId) {
-          await cloudinary.uploader.destroy(item.imageId);
+        try {
+          if (item.imageId) {
+            await cloudinary.uploader.destroy(item.imageId);
+          }
+          // If image deletion succeeded, or there was no image, queue for DB deletion
+          itemsToDelete.push(item.id);
+        } catch (error: any) {
+          console.error(`⚠️ Failed to delete image for item ${item.id}: ${error.message || "Unknown error"}`);
         }
       }
 
-      // 3. Delete records from the PostgreSQL database
+      if (itemsToDelete.length === 0) {
+        console.log("⚠️ All image deletions failed. No items were deleted from the database.");
+        return;
+      }
+
+      // 3. Delete successfully processed records from the PostgreSQL database
       const deleted = await prisma.item.deleteMany({
         where: {
-          createdAt: { lt: ninetyDaysAgo },
+          id: { in: itemsToDelete },
         },
       });
 
-      console.log(`🗑️ Successfully purged ${deleted.count} expired items from the system.`);
+      console.log(`🗑️ Successfully purged ${deleted.count} expired ACTIVE items from the system.`);
     } catch (error: any) {
       console.error("❌ Nightly cron job failed:", error.message || "Unknown error");
     }
